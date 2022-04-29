@@ -24,7 +24,4 @@ module.exports = {
         publicPath: '',
         filename: 'js/main.js'
     },
-    devServer: {
-        contentBase: './dist'
-    } 
 };

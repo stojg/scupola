@@ -1,3 +1,5 @@
 tmp
+dist/js
 ./src/tmp
 node_modules
+*.js.map

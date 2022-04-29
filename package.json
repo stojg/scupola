@@ -5,11 +5,11 @@
   "main": "npm run start",
   "scripts": {
     "start": "concurrently --names 'js,go' -c 'bgBlue,bgMagenta' 'npm run dev' 'air'",
-    "dev": "webpack --watch --mode=development",
-    "serv": "webpack-dev-server --mode development --open",
-    "prod": "webpack --mode production",
-    "gobuild": "./buildandrun.sh"
+    "dev": "rimraf ./dist/js && webpack --watch --config webpack.dev.js",
+    "serv": "rimraf ./dist/js && webpack-dev-server --mode development --open",
+    "prod": "rimraf ./dist/js && webpack --config webpack.prod.js"
   },
+  "sideEffects": false,
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -22,15 +22,19 @@
     "@babel/plugin-transform-runtime": "^7.17.10",
     "@babel/preset-env": "^7.17.10",
     "@babel/preset-react": "^7.16.7",
+    "@babylonjs/core": "^5.4.0",
+    "@babylonjs/inspector": "^5.4.0",
     "@types/react": "^18.0.8",
     "@types/react-dom": "^18.0.3",
     "babel-core": "^6.26.3",
     "babel-loader": "^8.2.5",
     "concurrently": "^7.1.0",
+    "rimraf": "^3.0.2",
     "ts-loader": "^9.2.9",
     "typescript": "^4.6.4",
     "webpack": "^5.72.0",
     "webpack-cli": "^4.9.2",
-    "webpack-dev-server": "^4.8.1"
+    "webpack-dev-server": "^4.8.1",
+    "webpack-merge": "^5.8.0"
   }
 }
