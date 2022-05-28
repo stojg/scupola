@@ -1,110 +1,99 @@
 import * as BABYLON from '@babylonjs/core'
+import SteeringVehicle from './steering'
 
 export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
   const scene = new BABYLON.Scene(engine)
-  const camera: BABYLON.ArcRotateCamera = new BABYLON.ArcRotateCamera('Camera', -Math.PI / 2, Math.PI / 3, 4, BABYLON.Vector3.Zero(), scene)
+  const camera: BABYLON.ArcRotateCamera = new BABYLON.ArcRotateCamera('Camera', -Math.PI / 3, Math.PI / 3, 50, BABYLON.Vector3.Zero(), scene)
   camera.attachControl(canvas, true)
-  const light = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(1, 1, 1), scene)
-  light.intensity = 1.0
-  const sphere = (pos: BABYLON.Vector3, colour: number[], size = 0.1) => {
-    const s = BABYLON.MeshBuilder.CreateSphere('sphere', { diameter: size }, scene)
-    s.position = pos
-    const mat = new BABYLON.StandardMaterial('mat', scene)
-    mat.diffuseColor = new BABYLON.Color3(colour[0], colour[1], colour[2])
-    s.material = mat
-    return s
-  }
 
-  const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 5, height: 5 }, scene)
-  const matg = new BABYLON.StandardMaterial('mat', scene)
-  matg.diffuseColor.set(0.98, 0.97, 0.83)
+  const hemi = new BABYLON.HemisphericLight('HemiLight', new BABYLON.Vector3(0, 1, 0), scene)
+  hemi.intensity = 0.4
+
+  const light = new BABYLON.DirectionalLight('dir01', new BABYLON.Vector3(-1, -2, -1), scene)
+  light.position = new BABYLON.Vector3(20, 40, 20)
+  light.intensity = 0.6
+
+  const shadowGenerator = new BABYLON.ShadowGenerator(4096, light)
+  shadowGenerator.useBlurExponentialShadowMap = true
+  shadowGenerator.useKernelBlur = true
+  shadowGenerator.blurKernel = 64
+
+  const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
+  ground.receiveShadows = true
+  const matg = new BABYLON.StandardMaterial('ground', scene)
+  matg.diffuseColor.set(0.7, 0.7, 0.7)
   matg.specularColor.set(0, 0, 0)
   ground.material = matg
 
-  const box = BABYLON.MeshBuilder.CreateBox('box', { width: 0.5, height: 0.5, depth: 0.5 })
-  box.material = new BABYLON.StandardMaterial('mat', scene)
-  // box.material.alpha = 0.9
-  box.showBoundingBox = true
-  box.position.set(0.5, 1.0, 0.0)
-  box.scaling.set(1.1, 0.9, 1.4)
+  const NPCs: SteeringVehicle[] = []
 
-  const origin = sphere(new BABYLON.Vector3(0, 0, 0), [0.97, 0.54, 0.88], 0.04)
-  // shows where on the box the closes point is
-  const closestMarker = sphere(BABYLON.Vector3.Zero(), [0.97, 0.54, 0.88], 0.05)
-  const lowestMarker = sphere(BABYLON.Vector3.Zero(), [0.97, 0.54, 0.88], 0.05)
-  const groundMarker = sphere(BABYLON.Vector3.Zero(), [0.97, 0.54, 0.88], 0.04)
-
-  const options = {
-    points: [origin.position.clone(), new BABYLON.Vector3(0, 1, 1)],
-    updatable: true,
-    instance: null as any,
-  }
-  let closestsLines = BABYLON.MeshBuilder.CreateLines('lines', options)
-  closestsLines.color = new BABYLON.Color3(0.97, 0.54, 0.88)
-  const options2 = {
-    points: [origin.position.clone(), new BABYLON.Vector3(0, 1, 1)],
-    updatable: true,
-    instance: null as any,
-  }
-  let lowestLines = BABYLON.MeshBuilder.CreateLines('lines', options2)
-  lowestLines.color = new BABYLON.Color3(0.97, 0.54, 0.88)
-
-  const closestPointToOBB = (point: BABYLON.Vector3, box: BABYLON.BoundingBox, result: BABYLON.Vector3) => {
-    // this is half the width of the box
-    const halfWidths = box.extendSize.asArray()
-    // translate the point into the local space of the box,
-    const d = point.subtract(box.centerWorld)
-    // start result at centre of box, make steps from there
-    result.copyFrom(box.centerWorld)
-
-    for (let i = 0; i < 3; i++) {
-      let dist = BABYLON.Vector3.Dot(d, box.directions[i])
-      // clamp to the extend of the bounding box
-      if (dist > halfWidths[i]) {
-        dist = halfWidths[i]
-      } else if (dist < -halfWidths[i]) {
-        dist = -halfWidths[i]
-      }
-      result.addInPlace(box.directions[i].scale(dist))
-    }
+  for (let i = 0; i < 100; i++) {
+    const b = createBox(scene, BABYLON.Vector3.FromArray([Math.random() * 10, 0.8, Math.random() * 10]), [0.98, 0.97, 0.91], [0.5, 1.6, 0.3])
+    shadowGenerator.getShadowMap().renderList.push(b)
+    NPCs.push(new SteeringVehicle(b, scene))
   }
 
-  const lowestCorner = (box: BABYLON.BoundingBox, result: BABYLON.Vector3) => {
-    result.setAll(Infinity)
-    for (let i = 0; i < box.vectorsWorld.length - 1; i++) {
-      if (box.vectorsWorld[i].y < result.y) {
-        result.copyFrom(box.vectorsWorld[i])
-      }
-    }
-  }
+  // const box1 = createBox(scene, BABYLON.Vector3.FromArray([0.1, 0.8, 10]), [0.98, 0.97, 0.91], [0.5, 1.6, 0.3])
+  // shadowGenerator.getShadowMap().renderList.push(box1)
+  // const npc1 = new SteeringVehicle(box1, scene, { maxSpeed: 0.01 })
+  //
+  // const box2 = createBox(scene, BABYLON.Vector3.FromArray([0, 0.8, -10]), [0.0, 0.0, 0.0], [0.5, 1.6, 0.3])
+  // shadowGenerator.getShadowMap().renderList.push(box1)
+  // const npc2 = new SteeringVehicle(box2, scene, { maxSpeed: 0.01 })
 
-  let t = 0
+  const sph1 = createSphere(scene, BABYLON.Vector3.FromArray([5, 0.5, 5]), [1, 1, 1], 1)
+  shadowGenerator.getShadowMap().renderList.push(sph1)
+  const npc2 = new SteeringVehicle(sph1, scene)
+
   scene.onBeforeRenderObservable.add(() => {
-    box.rotate(new BABYLON.Vector3(Math.sin(t), 0.5, Math.cos(t)), 0.02)
-    t = +1
+    // const v1 = npc1.applyForce(new BABYLON.Vector3(0, 0, -0.1)).collisionAvoidance([npc2]).lookWhereGoing(true).animate('priority')
+    // npc1.mesh.moveWithCollisions(v1)
+    // const v2 = npc2.applyForce(new BABYLON.Vector3(0, 0, 0.1)).lookWhereGoing(true).animate('priority')
+    // npc2.mesh.moveWithCollisions(v2)
+
+    for (const i in NPCs) {
+      const velocity = NPCs[i]
+        .idle()
+        .wander()
+        .separation(NPCs)
+        .collisionAvoidance([...NPCs, npc2])
+        .animate('blend')
+      NPCs[i].mesh.moveWithCollisions(velocity)
+    }
+    const vel2 = npc2.idle().animate('priority')
+    sph1.moveWithCollisions(vel2)
   })
 
-  scene.onAfterRenderObservable.add(() => {
-    const closestPoint = BABYLON.Vector3.Zero()
-    closestPointToOBB(origin.position, box.getBoundingInfo().boundingBox, closestPoint)
-    closestMarker.position.copyFrom(closestPoint)
-    options.points[1].copyFrom(closestPoint)
-    options.instance = closestsLines
-    closestsLines = BABYLON.MeshBuilder.CreateLines('lines1', options)
-    // const dist = BABYLON.Vector3.Distance(closestPoint, point.position)
-    // console.log(`distance to box from point is ${dist.toFixed(2)}`)
-
-    lowestCorner(box.getBoundingInfo().boundingBox, lowestMarker.position)
-
-    const ray = new BABYLON.Ray(lowestMarker.position, BABYLON.Vector3.FromArray([0, -1, 0]))
-    const p = ray.intersectsMesh(ground, true)
-    groundMarker.position.copyFrom(p.pickedPoint)
-    options2.points[0].copyFrom(groundMarker.position)
-    options2.points[1].copyFrom(lowestMarker.position)
-    options2.instance = lowestLines
-    lowestLines = BABYLON.MeshBuilder.CreateLines('lines2', options2)
-    // console.log(`distance to collider below is ${p.distance.toFixed(2)} and it is ${p.pickedMesh.name}`)
-    // })
-  })
   return scene
+}
+
+let sphereCounter = 0
+const createSphere = (scene: BABYLON.Scene, pos: BABYLON.Vector3, colour: number[], size = 0.1) => {
+  const mat = new BABYLON.StandardMaterial('sphere${sphereCounter}', scene)
+  mat.diffuseColor = new BABYLON.Color3(colour[0], colour[1], colour[2])
+  const s = BABYLON.MeshBuilder.CreateSphere(`sphere${sphereCounter}`, { diameter: size }, scene)
+  s.position.copyFrom(pos)
+  s.material = mat
+  sphereCounter += 1
+  return s
+}
+
+let boxCounter = 0
+const createBox = (scene: BABYLON.Scene, pos: BABYLON.Vector3, colour: number[], size: [number, number, number]) => {
+  const mat = new BABYLON.StandardMaterial('box{sphereCounter}', scene)
+  mat.diffuseColor = new BABYLON.Color3(colour[0], colour[1], colour[2])
+  mat.ambientColor = new BABYLON.Color3(colour[0], colour[1], colour[2])
+  const faceColors = []
+  for (let i = 0; i < 6; i++) {
+    faceColors.push(BABYLON.Color4.FromArray([...colour, 0]))
+  }
+  faceColors[0] = new BABYLON.Color4(0.9, 0, 0, 1) // red front
+
+  const options = { width: size[0], height: size[1], depth: size[2], faceColors }
+
+  const s = BABYLON.MeshBuilder.CreateBox(`box${sphereCounter}`, options, scene)
+  s.position.copyFrom(pos)
+  s.material = mat
+  boxCounter += 1
+  return s
 }

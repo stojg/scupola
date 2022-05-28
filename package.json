@@ -7,7 +7,8 @@
     "start": "concurrently --names 'js,go' -c 'bgBlue,bgMagenta' 'npm run dev' 'air'",
     "dev": "rimraf ./dist/js && webpack --watch --config webpack.dev.js",
     "serv": "rimraf ./dist/js && webpack-dev-server --mode development --open",
-    "prod": "rimraf ./dist/js && webpack --config webpack.prod.js"
+    "prod": "rimraf ./dist/js && webpack --config webpack.prod.js",
+    "build": "npm run prod"
   },
   "sideEffects": false,
   "keywords": [],
