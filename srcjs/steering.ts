@@ -11,6 +11,7 @@ const defaultPriorities: Record<string, number> = {
   flee: 6,
   seek: 5,
   wander: 1,
+  applyAcceleration: 1,
   idle: 0,
 }
 
@@ -141,13 +142,19 @@ export default class SteeringVehicle implements Target {
         }
       })
     } else if (mode === 'priority') {
-      // this._actions = this.sortByPriority(this._actions)
-      // for (let i = 0; i < this._actions.length; i++) {
-      //   if (this._actions[i].linear.lengthSquared() !== 0) {
-      //     this.steeringLinear = this.steeringLinear.add(this._actions[i].linear)
-      //     break
-      //   }
-      // }
+      this._actions = this.sortByPriority(this._actions)
+      for (let i = 0; i < this._actions.length; i++) {
+        if (this._actions[i].linear.lengthSquared() !== 0) {
+          linear.copyFrom(this._actions[i].linear)
+          break
+        }
+      }
+      for (let i = 0; i < this._actions.length; i++) {
+        if (this._actions[i].angular !== undefined) {
+          angular = this._actions[i].angular
+          break
+        }
+      }
     } else if (mode === 'probability') {
       // let output = new BABYLON.Vector3(0, 0, 0)
       // this._actions = this.sortByPriority(this._actions)
@@ -370,9 +377,8 @@ export default class SteeringVehicle implements Target {
     return this
   }
 
-  collisionAvoidance(entities: Target[], radius = 1, secondsAhead = 5, configuration = {}): this {
+  collisionAvoidance(entities: Target[], radius = 0.75, secondsAhead = 3, configuration = {}): this {
     let shortestTime = Infinity
-
     let firstTarget = null
     let firstMinSeparation = 0
     let firstDistance = 0
@@ -383,7 +389,6 @@ export default class SteeringVehicle implements Target {
       if (entities[i] === this) {
         continue
       }
-
       const target = entities[i]
 
       // calc time to collision
@@ -432,11 +437,10 @@ export default class SteeringVehicle implements Target {
       target.copyFrom(firstRelativePos).subtractInPlace(firstRelativeVel.scale(shortestTime))
     }
 
+    // avoid the target
     target.normalize().scaleInPlace(-this.maxAcceleration)
 
-    // avoid the target
     this.addAction(this.collisionAvoidance.name, { linear: target }, configuration)
-
     return this
   }
 
@@ -782,7 +786,7 @@ export default class SteeringVehicle implements Target {
 
   private sortByPriority(arr: Action[]): Action[] {
     return arr.sort(function (a, b) {
-      return (b.priority || defaultPriorities[b.name]) - (a.priority || defaultPriorities[a.name])
+      return (b.priority || defaultPriorities[b.name] || 0) - (a.priority || defaultPriorities[a.name] || 0)
     })
   }
 
