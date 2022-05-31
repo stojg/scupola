@@ -67,11 +67,11 @@ export default class SteeringVehicle implements Target {
   private readonly engine: BABYLON.Engine
   private readonly _mesh: BABYLON.Mesh
 
-  private maxSpeed: number = 1.4
-  private maxAcceleration: number = 1
+  private readonly maxSpeed: number = 1.4
+  private readonly maxAcceleration: number = 1
 
-  private maxRotation: number = 2 * Math.PI
-  private maxAngularAcceleration: number = this.maxRotation
+  private readonly maxRotation: number = 2 * Math.PI
+  private readonly maxAngularAcceleration: number = this.maxRotation
 
   private readonly drag: number = 0.999
 
@@ -282,7 +282,7 @@ export default class SteeringVehicle implements Target {
     return this
   }
 
-  pursue(target: PositionTarget & VelocityTarget, maxPredictionSec = 1, targetThreshold = 0.1, configuration = {}): this {
+  pursue(target: PositionTarget & VelocityTarget, maxPredictionSec = 2, targetThreshold = 0.1, configuration = {}): this {
     const direction = target.position.subtract(this.position)
     const distance = direction.length()
     const speed = this.velocity.length()
@@ -292,7 +292,7 @@ export default class SteeringVehicle implements Target {
       prediction = distance / speed
     }
     const targetAhead = target.position.add(target.velocity.scale(prediction))
-    return this.seek({ position: targetAhead }, targetThreshold, configuration)
+    return this.arrive({ position: targetAhead }, targetThreshold, 2, 0.2, configuration)
   }
 
   evade(target: Target, maxPredictionSec = 1, targetThreshold = 0.1, configuration = {}): this {
@@ -332,7 +332,7 @@ export default class SteeringVehicle implements Target {
     )
   }
 
-  wander(wanderRate = 0.1, offset = 5, radius = 4, configuration = {}): this {
+  wander(wanderRate = 3.14, offset = 5, radius = 4, configuration = {}): this {
     const direction = this._mesh.getDirection(forward)
     this.wanderOrientation += randomBinomial() * wanderRate
 
@@ -364,45 +364,81 @@ export default class SteeringVehicle implements Target {
 
       // inverse square law strength based on distance
       const strength = Math.min(decayCoefficient / sqrLength, this.maxAcceleration)
-
       linear.addInPlace(direction.normalize().scaleInPlace(strength))
     }
-
     this.addAction(this.separation.name, { linear: linear }, configuration)
     return this
   }
 
-  // tries to arrive at target with zero speed after hitting threshold
-  // seekWithArrive(target: Target, threshold: number, configuration = {}): this {
-  //   const desiredVelocity = target.position.clone().subtract(this.position.clone())
-  //   desiredVelocity.normalize()
-  //   const distance = BABYLON.Vector3.Distance(target.position, this._mesh.position)
-  //
-  //   if (distance > this.arrivalThreshold) {
-  //     desiredVelocity.scaleInPlace(this.maxSpeed * this.dt)
-  //   } else if (distance > threshold && distance < this.arrivalThreshold) {
-  //     desiredVelocity.scaleInPlace((this.maxSpeed * this.dt * (distance - threshold)) / (this.arrivalThreshold - threshold))
-  //   } else {
-  //     this.idle(target, configuration)
-  //   }
-  //   let action = { linear: desiredVelocity.subtractInPlace(this._velocity), name: this.seekWithArrive.name }
-  //   this._actions.push(Object.assign(configuration, action))
-  //   return this
-  // }
+  collisionAvoidance(entities: Target[], radius = 1, secondsAhead = 5, configuration = {}): this {
+    let shortestTime = Infinity
 
-  // arrive(target: Target, configuration = {}): this {
-  //   const desiredVelocity = target.position.clone().subtract(this.position.clone())
-  //   desiredVelocity.normalize()
-  //   const distance = BABYLON.Vector3.Distance(target.position, this._mesh.position)
-  //   if (distance > this.arrivalThreshold) {
-  //     desiredVelocity.scaleInPlace(this.maxSpeed * this.dt)
-  //   } else {
-  //     desiredVelocity.scaleInPlace((this.maxSpeed * this.dt * distance) / this.arrivalThreshold)
-  //   }
-  //   let action = { linear: desiredVelocity.subtractInPlace(this._velocity), name: this.flee.name }
-  //   this._actions.push(Object.assign(configuration, action))
-  //   return this
-  // }
+    let firstTarget = null
+    let firstMinSeparation = 0
+    let firstDistance = 0
+    let firstRelativePos = null
+    let firstRelativeVel = null
+
+    for (let i = 0; i < entities.length; i++) {
+      if (entities[i] === this) {
+        continue
+      }
+
+      const target = entities[i]
+
+      // calc time to collision
+      let relativePos = target.position.subtract(this.position)
+      let relativeVel = target.velocity.subtract(this.velocity)
+      let relativeSpeed = relativeVel.length()
+      let timeToCollision = -BABYLON.Vector3.Dot(relativePos, relativeVel) / (relativeSpeed * relativeSpeed)
+
+      // check if it is going to be a collision at all
+      let distance = relativePos.length()
+
+      let minSeparation = distance - relativeSpeed * timeToCollision
+
+      if (minSeparation > 2 * radius) {
+        continue
+      }
+
+      // check if it is the shortest
+      if (timeToCollision > 0 && timeToCollision < shortestTime) {
+        // store the time, target and other data
+        shortestTime = timeToCollision
+        firstTarget = target
+        firstMinSeparation = minSeparation
+        firstDistance = distance
+        firstRelativePos = relativePos
+        firstRelativeVel = relativeVel
+      }
+    }
+
+    if (!firstTarget) {
+      this.debugMesh.setEnabled(false)
+      return this
+    }
+
+    if (shortestTime > secondsAhead) {
+      this.debugMesh.setEnabled(false)
+      return this
+    }
+
+    let target = BABYLON.Vector3.Zero()
+    // if we are going to hit exactly, or if we're already colliding, then do the steering based on current position
+    if (firstMinSeparation <= 0 || firstDistance < 2 * radius) {
+      target.copyFrom(firstTarget.position).subtractInPlace(this.position)
+    } else {
+      // otherwise, calculate the future relative position
+      target.copyFrom(firstRelativePos).subtractInPlace(firstRelativeVel.scale(shortestTime))
+    }
+
+    target.normalize().scaleInPlace(-this.maxAcceleration)
+
+    // avoid the target
+    this.addAction(this.collisionAvoidance.name, { linear: target }, configuration)
+
+    return this
+  }
 
   // @stojg todo / test properly
   // hide(target: Target, obstacles: Target[], threshold = 250): this {
@@ -515,76 +551,6 @@ export default class SteeringVehicle implements Target {
       10
     )
   }
-
-  // collisionAvoidance(entities: Target[], radius = 1.5, secondsAhead = 5, configuration = {}): this {
-  //   let shortestTime = Infinity
-  //
-  //   let firstTarget = null
-  //   let firstMinSeparation = 0
-  //   let firstDistance = 0
-  //   let firstRelativePos
-  //   let firstRelativeVel
-  //
-  //   for (let i = 0; i < entities.length; i++) {
-  //     if (entities[i] === this) {
-  //       continue
-  //     }
-  //
-  //     const target = entities[i]
-  //
-  //     // calc time to collision
-  //     let relativePos = target.position.subtract(this._mesh.position)
-  //     let relativeVel = this.velocity.subtract(target.velocity)
-  //     let relativeSpeed = relativeVel.length()
-  //     let timeToCollision = BABYLON.Vector3.Dot(relativePos, relativeVel) / (relativeSpeed * relativeSpeed)
-  //
-  //     // check if it is going to be a collision at all
-  //     let distance = relativePos.length()
-  //     let minSeparation = distance - relativeSpeed * timeToCollision
-  //
-  //     if (minSeparation > 2 * radius) {
-  //       continue
-  //     }
-  //
-  //     // check if it is the shortest
-  //     if (timeToCollision > 0 && timeToCollision < shortestTime) {
-  //       // store the time, target and other data
-  //       shortestTime = timeToCollision
-  //       firstTarget = target
-  //       firstMinSeparation = minSeparation
-  //       firstDistance = distance
-  //       firstRelativePos = relativePos
-  //       firstRelativeVel = relativeVel
-  //     }
-  //   }
-  //
-  //   if (!firstTarget) {
-  //     return this
-  //   }
-  //
-  //   if (shortestTime > secondsAhead) {
-  //     return this
-  //   }
-  //
-  //   let relativePos: BABYLON.Vector3
-  //   // if we are going to hit exactly, or if we're already colliding, then do the steering based on current position
-  //   if (firstMinSeparation <= 0 || firstDistance < 2 * radius) {
-  //     relativePos = this.position.subtract(firstTarget.position)
-  //   } else {
-  //     // otherwise, calculate the future relative position
-  //     relativePos = firstRelativePos.add(firstRelativeVel.scaleInPlace(shortestTime))
-  //   }
-  //
-  //   if (!relativePos) {
-  //     return this
-  //   }
-  //
-  //   // avoid the target
-  //   let action = { linear: relativePos.normalize().scale(this.maxForce), name: this.collisionAvoidance.name }
-  //   this._actions.push(Object.assign(configuration, action))
-  //
-  //   return this
-  // }
 
   followPath(path: BABYLON.Vector3[], loop: boolean, thresholdRadius = 10): this {
     const wayPoint = path[this.pathIndex]

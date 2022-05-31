@@ -39,7 +39,7 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
   walls.forEach((w) => (w.isPickable = true))
 
   const NPCs: SteeringVehicle[] = []
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 0; i++) {
     const b = createBox(scene, BABYLON.Vector3.FromArray([Math.random() * 10, 0.8, Math.random() * 10]), [0.98, 0.97, 0.91], [0.5, 1.6, 0.3])
     b.isPickable = false
     b.rotation.y = Math.random() * 2 * Math.PI
@@ -47,38 +47,42 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
     shadowGenerator.getShadowMap().renderList.push(b)
     NPCs.push(new SteeringVehicle(b, scene))
   }
-  const debugBox = createBox(scene, BABYLON.Vector3.FromArray([0, 0.8, 0]), [0.98, 0.97, 0.91], [0.5, 1.6, 0.3])
-  debugBox.name = 'debugbox'
-  shadowGenerator.getShadowMap().renderList.push(debugBox)
-  const debugNPC = new SteeringVehicle(debugBox, scene, { maxSpeed: 12.27, maxAcceleration: 9.5 })
+  const hunter = createBox(scene, BABYLON.Vector3.FromArray([0, 0.8, 0]), [0.98, 0.97, 0.91], [0.5, 1.6, 0.3])
+  hunter.name = 'hunter'
+  const hunterNPC = new SteeringVehicle(hunter, scene, { maxSpeed: 12.27, maxAcceleration: 9.5 })
 
-  const sph1 = createBox(scene, BABYLON.Vector3.FromArray([-15, 0.5, 15]), [0.7, 0.8, 0.9], [1, 1, 1])
-  sph1.name = 'sph1'
-  shadowGenerator.getShadowMap().renderList.push(sph1)
-  const npc2 = new SteeringVehicle(sph1, scene, { maxSpeed: 12.27, maxAcceleration: 9.5 })
+  const pray = createBox(scene, BABYLON.Vector3.FromArray([-15, 0.5, 15]), [0.7, 0.8, 0.9], [1, 1, 1])
+  pray.name = 'pray'
+  const prayNPC = new SteeringVehicle(pray, scene, { maxSpeed: 12.27, maxAcceleration: 9.5 })
+
+  const left = createBox(scene, BABYLON.Vector3.FromArray([0, 0.5, 5.2]), [0.7, 0.9, 0.8], [1, 1, 1])
+  const leftNPC = new SteeringVehicle(left, scene, { maxSpeed: 1 })
+  const right = createBox(scene, BABYLON.Vector3.FromArray([10, 0.5, 4.8]), [0.9, 0.8, 0.7], [1, 1, 1])
+  const rightNPC = new SteeringVehicle(right, scene, { maxSpeed: 1 })
 
   scene.onBeforeRenderObservable.add(() => {
-    const data = debugNPC.pursue(npc2).lookWhereGoing().animate('blend')
-    debugNPC.mesh.position.copyFrom(data.position)
-    debugNPC.mesh.rotation.set(0, data.orientation, 0)
-    const d = npc2.wander(0.2, 10, 30).lookWhereGoing().animate('blend')
-    npc2.mesh.position.copyFrom(d.position)
-    npc2.mesh.rotation.set(0, d.orientation, 0)
+    set(hunterNPC.mesh, hunterNPC.pursue(prayNPC).lookWhereGoing().animate('blend'))
+    set(prayNPC.mesh, prayNPC.wander(0.2, 10, 30).lookWhereGoing().animate('blend'))
+
+    set(leftNPC.mesh, leftNPC.applyAcceleration(new BABYLON.Vector3(1, 0, 0)).animate('blend'))
+    set(rightNPC.mesh, rightNPC.collisionAvoidance([leftNPC]).animate('blend'))
 
     for (const i in NPCs) {
       const data = NPCs[i]
-        // .wander()
-        .separation(NPCs)
-        // .collisionAvoidance([...NPCs])
+        .wander()
+        .collisionAvoidance([...NPCs])
         .lookWhereGoing()
-
         .animate('blend')
-      NPCs[i].mesh.position.copyFrom(data.position)
-      NPCs[i].mesh.rotation.set(0, data.orientation, 0)
+      set(NPCs[i].mesh, data)
     }
   })
 
   return scene
+}
+
+function set(mesh: Readonly<BABYLON.Mesh>, data: { position: BABYLON.Vector3; orientation: number }) {
+  mesh.position.copyFrom(data.position)
+  mesh.rotation.set(0, data.orientation, 0)
 }
 
 let sphereCounter = 0
@@ -97,6 +101,7 @@ const createBox = (scene: BABYLON.Scene, pos: BABYLON.Vector3, colour: number[],
   const mat = new BABYLON.StandardMaterial('box{sphereCounter}', scene)
   mat.diffuseColor = new BABYLON.Color3(colour[0], colour[1], colour[2])
   mat.ambientColor = new BABYLON.Color3(colour[0], colour[1], colour[2])
+  mat.alpha = 0.75
   const faceColors = []
   for (let i = 0; i < 6; i++) {
     faceColors.push(BABYLON.Color4.FromArray([...colour, 0]))
