@@ -20,48 +20,62 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
 
   const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
   ground.receiveShadows = true
+  ground.freezeWorldMatrix()
   const matg = new BABYLON.StandardMaterial('ground', scene)
-  matg.diffuseColor.set(0.7, 0.7, 0.7)
+  matg.freeze()
+  const gridTexture = new BABYLON.Texture('./grid.png', scene)
+  gridTexture.vScale = gridTexture.uScale = 1000
+  matg.diffuseTexture = gridTexture
+
   matg.specularColor.set(0, 0, 0)
   ground.material = matg
 
-  const NPCs: SteeringVehicle[] = []
+  const walls: BABYLON.Mesh[] = []
+  const width = 250
+  walls.push(createBox(scene, BABYLON.Vector3.FromArray([width / 2, 1, 0]), [0.5, 0.6, 0.7], [0.5, 2, width]))
+  walls.push(createBox(scene, BABYLON.Vector3.FromArray([-width / 2, 1, 0]), [0.5, 0.6, 0.7], [0.5, 2, width]))
+  walls.push(createBox(scene, BABYLON.Vector3.FromArray([0, 1, width / 2]), [0.5, 0.6, 0.7], [width, 2, 0.5]))
+  walls.push(createBox(scene, BABYLON.Vector3.FromArray([0, 1, -width / 2]), [0.5, 0.6, 0.7], [width, 2, 0.5]))
+  walls.forEach((w) => (w.isPickable = true))
 
+  const NPCs: SteeringVehicle[] = []
   for (let i = 0; i < 100; i++) {
     const b = createBox(scene, BABYLON.Vector3.FromArray([Math.random() * 10, 0.8, Math.random() * 10]), [0.98, 0.97, 0.91], [0.5, 1.6, 0.3])
+    b.isPickable = false
+    b.rotation.y = Math.random() * 2 * Math.PI
+
     shadowGenerator.getShadowMap().renderList.push(b)
     NPCs.push(new SteeringVehicle(b, scene))
   }
+  const debugBox = createBox(scene, BABYLON.Vector3.FromArray([0, 0.8, 0]), [0.98, 0.97, 0.91], [0.5, 1.6, 0.3])
+  debugBox.name = 'debugbox'
+  shadowGenerator.getShadowMap().renderList.push(debugBox)
+  const debugNPC = new SteeringVehicle(debugBox, scene, { maxSpeed: 12.27, maxAcceleration: 9.5 })
 
-  // const box1 = createBox(scene, BABYLON.Vector3.FromArray([0.1, 0.8, 10]), [0.98, 0.97, 0.91], [0.5, 1.6, 0.3])
-  // shadowGenerator.getShadowMap().renderList.push(box1)
-  // const npc1 = new SteeringVehicle(box1, scene, { maxSpeed: 0.01 })
-  //
-  // const box2 = createBox(scene, BABYLON.Vector3.FromArray([0, 0.8, -10]), [0.0, 0.0, 0.0], [0.5, 1.6, 0.3])
-  // shadowGenerator.getShadowMap().renderList.push(box1)
-  // const npc2 = new SteeringVehicle(box2, scene, { maxSpeed: 0.01 })
-
-  const sph1 = createSphere(scene, BABYLON.Vector3.FromArray([5, 0.5, 5]), [1, 1, 1], 1)
+  const sph1 = createBox(scene, BABYLON.Vector3.FromArray([-15, 0.5, 15]), [0.7, 0.8, 0.9], [1, 1, 1])
+  sph1.name = 'sph1'
   shadowGenerator.getShadowMap().renderList.push(sph1)
-  const npc2 = new SteeringVehicle(sph1, scene)
+  const npc2 = new SteeringVehicle(sph1, scene, { maxSpeed: 12.27, maxAcceleration: 9.5 })
 
   scene.onBeforeRenderObservable.add(() => {
-    // const v1 = npc1.applyForce(new BABYLON.Vector3(0, 0, -0.1)).collisionAvoidance([npc2]).lookWhereGoing(true).animate('priority')
-    // npc1.mesh.moveWithCollisions(v1)
-    // const v2 = npc2.applyForce(new BABYLON.Vector3(0, 0, 0.1)).lookWhereGoing(true).animate('priority')
-    // npc2.mesh.moveWithCollisions(v2)
+    const data = debugNPC.pursue(npc2).lookWhereGoing().animate('blend')
+    debugNPC.mesh.position.copyFrom(data.position)
+    debugNPC.mesh.rotation.set(0, data.orientation, 0)
+    const d = npc2.wander(0.2, 10, 30).lookWhereGoing().animate('blend')
+    npc2.mesh.position.copyFrom(d.position)
+    npc2.mesh.rotation.set(0, d.orientation, 0)
 
     for (const i in NPCs) {
-      const velocity = NPCs[i]
-        .idle()
-        .wander()
+      const data = NPCs[i]
+        // .wander()
         .separation(NPCs)
-        .collisionAvoidance([...NPCs, npc2])
+        // .collisionAvoidance([...NPCs])
+        .lookWhereGoing()
+
         .animate('blend')
-      NPCs[i].mesh.moveWithCollisions(velocity)
+      NPCs[i].mesh.position.copyFrom(data.position)
+      NPCs[i].mesh.rotation.set(0, data.orientation, 0)
     }
-    const vel2 = npc2.idle().animate('priority')
-    sph1.moveWithCollisions(vel2)
   })
 
   return scene
