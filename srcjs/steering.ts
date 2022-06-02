@@ -144,7 +144,7 @@ export default class SteeringVehicle implements Target {
     } else if (mode === 'priority') {
       this._actions = this.sortByPriority(this._actions)
       for (let i = 0; i < this._actions.length; i++) {
-        if (this._actions[i].linear.lengthSquared() !== 0) {
+        if (this._actions[i].linear && this._actions[i].linear.lengthSquared() !== 0) {
           linear.copyFrom(this._actions[i].linear)
           break
         }

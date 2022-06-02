@@ -79,7 +79,7 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
     set(rightNPC.mesh, rightNPC.collisionAvoidance(all, 1).animate('priority'))
 
     for (const i in NPCs) {
-      const data = NPCs[i].wander(3.14, 2, 6).separation(all).collisionAvoidance(all).obstacleAvoidance(walls).lookWhereGoing().animate('priority')
+      const data = NPCs[i].separation(all).collisionAvoidance(all).obstacleAvoidance(walls).lookWhereGoing().animate('priority')
       set(NPCs[i].mesh, data)
     }
   })
