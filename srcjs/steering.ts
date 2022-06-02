@@ -1,10 +1,10 @@
 import * as BABYLON from '@babylonjs/core'
-import { MeshBuilder } from '@babylonjs/core'
+import { MeshBuilder, PickingInfo, RayHelper, Vector3 } from '@babylonjs/core'
 
 const defaultPriorities: Record<string, number> = {
+  obstacleAvoidance: 20,
+  collisionAvoidance: 15,
   avoid: 10,
-  collisionAvoidance: 10,
-  obstacleAvoidance: 9,
   queue: 9,
   separation: 7,
   flock: 6,
@@ -419,12 +419,10 @@ export default class SteeringVehicle implements Target {
     }
 
     if (!firstTarget) {
-      this.debugMesh.setEnabled(false)
       return this
     }
 
     if (shortestTime > secondsAhead) {
-      this.debugMesh.setEnabled(false)
       return this
     }
 
@@ -441,6 +439,57 @@ export default class SteeringVehicle implements Target {
     target.normalize().scaleInPlace(-this.maxAcceleration)
 
     this.addAction(this.collisionAvoidance.name, { linear: target }, configuration)
+    return this
+  }
+
+  obstacleAvoidance(obstacles: BABYLON.Mesh[], avoidDistance = 2, lookahead = 6, configuration = {}): this {
+    if (this.velocity.lengthSquared() === 0) {
+      return this
+    }
+    let direction = this.velocity.clone().normalize()
+
+    const start = this.position.add(direction.scaleInPlace(this._mesh.getBoundingInfo().boundingSphere.radiusWorld))
+
+    const leftRot = new BABYLON.Quaternion(0, 0.382, 0, 0.9239556994702721).normalize()
+    const rightRot = new BABYLON.Quaternion(0, -0.382, 0, 0.9239556994702721).normalize()
+
+    const left = new BABYLON.Vector3(0, 0, 0)
+    direction.clone().rotateByQuaternionToRef(leftRot, left)
+
+    const right = new BABYLON.Vector3(0, 0, 0)
+    direction.clone().rotateByQuaternionToRef(rightRot, right)
+
+    const rays = [new BABYLON.Ray(start, left, avoidDistance), new BABYLON.Ray(start, direction, lookahead), new BABYLON.Ray(start, right, avoidDistance)]
+
+    let shortest = Infinity
+    let hit: PickingInfo | null = null
+    let idx: number = 0
+
+    rays.forEach((ray, index) => {
+      const pickingInfos: BABYLON.PickingInfo[] = []
+      ray.intersectsMeshes(obstacles, false, pickingInfos)
+      if (!pickingInfos.length) {
+        return
+      }
+      pickingInfos.sort((a, b) => a.distance - b.distance)
+
+      if (pickingInfos[0].distance < shortest) {
+        shortest = pickingInfos[0].distance
+        hit = pickingInfos[0]
+        idx = index
+      }
+    })
+
+    if (!hit) {
+      return this
+    }
+
+    const normal = hit.getNormal(true)
+    const target = hit.pickedPoint.add(normal.scale(avoidDistance))
+
+    const linear = target.subtract(this.position)
+    linear.normalize().scaleInPlace(this.maxAcceleration)
+    this.addAction(this.obstacleAvoidance.name, { linear: linear }, configuration)
     return this
   }
 
@@ -478,67 +527,6 @@ export default class SteeringVehicle implements Target {
   //     this.lookWhereGoing(true)
   //     this.idle()
   //   }
-  //   return this
-  // }
-
-  obstacleAvoidance(obstacles: BABYLON.Mesh[], avoidDistance = 5, lookahead = 10, configuration = {}): this {
-    let direction = this.velocity.clone().normalize()
-    const start = this.position.add(direction.scaleInPlace(this._mesh.getBoundingInfo().boundingSphere.radiusWorld))
-
-    const ray = new BABYLON.Ray(start, direction, lookahead)
-
-    const pickingInfos: BABYLON.PickingInfo[] = []
-    ray.intersectsMeshes(obstacles, false, pickingInfos)
-    if (pickingInfos.length === 0) {
-      // this.debugMesh.setEnabled(false)
-      return this
-    }
-
-    // sort by distance, not sure if babylonjs does this for us
-    pickingInfos.sort((a, b) => a.distance - b.distance)
-
-    const hit = pickingInfos[0]
-
-    const normal = hit.getNormal(true)
-
-    const target = hit.pickedPoint.add(normal.scale(avoidDistance))
-
-    return this.seek({ position: target })
-  }
-
-  // wander(configuration = {}): this {
-  //   const direction = this._mesh.getDirection(forward)
-  //
-  //   this.wanderOrientation += randomBinomial() * this.wanderRate
-  //
-  //   let target = new BABYLON.Vector3(Math.sin(this.wanderOrientation), 0, Math.cos(this.wanderOrientation))
-  //   target.scaleInPlace(this.wanderRadius)
-  //   const ahead = direction.scale(this.wanderOffset).addInPlace(this._mesh.position)
-  //   target.addInPlace(ahead)
-  //   this._mesh.lookAt(target)
-  //   return this.seek({ position: target, orientation: 0 })
-  // }
-
-  // separation(entities: Target[], radius = 1.5, strength = 1, configuration = {}): this {
-  //   const force = new BABYLON.Vector3(0, 0, 0)
-  //   for (let i = 0; i < entities.length; i++) {
-  //     if (entities[i] === this) {
-  //       continue
-  //     }
-  //     let direction = this.position.clone().subtractInPlace(entities[i].position)
-  //     let sqrLength = direction.lengthSquared()
-  //     if (sqrLength <= radius * radius) {
-  //       // edge-case, entities are on top of each other, pick a random direction
-  //       if (sqrLength === 0) {
-  //         const r = Math.random() * 2 * Math.PI
-  //         direction = BABYLON.Vector3.FromArray([Math.sin(r), 0, Math.cos(r)])
-  //         sqrLength = 0.000001
-  //       }
-  //       const f = Math.min(strength / sqrLength, this.maxForce)
-  //       force.addInPlace(direction.normalize().scaleInPlace(f))
-  //     }
-  //   }
-  //   this._actions.push(Object.assign(configuration, { linear: force, name: this.separation.name }))
   //   return this
   // }
 
@@ -803,29 +791,6 @@ export default class SteeringVehicle implements Target {
     this._mesh.lookAt(target.position) // native function
     return this
   }
-
-  // https://forum.babylonjs.com/t/rotation-angle-of-camera-to-object/2603/21
-  // lookWhereGoing(smoothing: true): this {
-  //   let direction = this.position.clone().add(this._velocity)
-  //   direction.y = this.position.y
-  //   if (smoothing) {
-  //     if (this.velocitySamples.length == this.numSamplesForSmoothing) {
-  //       this.velocitySamples.shift()
-  //     }
-  //     let c = this._velocity.clone()
-  //     c.y = this.position.y
-  //     this.velocitySamples.push(c)
-  //     direction.setAll(0)
-  //     for (let v = 0; v < this.velocitySamples.length; v++) {
-  //       direction.addInPlace(this.velocitySamples[v])
-  //     }
-  //     direction.scaleInPlace(1 / this.velocitySamples.length)
-  //     direction = this.position.clone().add(direction)
-  //     direction.y = this.position.y
-  //   }
-  //   this._mesh.lookAt(direction)
-  //   return this
-  // }
 
   private addAction(name: string, action: Action, configuration = {}) {
     this._actions.push(Object.assign(configuration, action, { name: name }))

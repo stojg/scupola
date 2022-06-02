@@ -29,11 +29,11 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
   ground.material = matg
 
   const walls: BABYLON.Mesh[] = []
-  const width = 250
-  // walls.push(createBox(scene, BABYLON.Vector3.FromArray([width / 2, 1, 0]), [0.5, 0.6, 0.7], [0.5, 2, width]))
-  // walls.push(createBox(scene, BABYLON.Vector3.FromArray([-width / 2, 1, 0]), [0.5, 0.6, 0.7], [0.5, 2, width]))
-  // walls.push(createBox(scene, BABYLON.Vector3.FromArray([0, 1, width / 2]), [0.5, 0.6, 0.7], [width, 2, 0.5]))
-  // walls.push(createBox(scene, BABYLON.Vector3.FromArray([0, 1, -width / 2]), [0.5, 0.6, 0.7], [width, 2, 0.5]))
+  const width = 10
+  walls.push(createBox(scene, BABYLON.Vector3.FromArray([width / 2, 1, 0 + 20]), [0.5, 0.6, 0.7], [0.5, 2, width]))
+  walls.push(createBox(scene, BABYLON.Vector3.FromArray([-width / 2, 1, 0 + 20]), [0.5, 0.6, 0.7], [0.5, 2, width]))
+  walls.push(createBox(scene, BABYLON.Vector3.FromArray([0, 1, width / 2 + 20]), [0.5, 0.6, 0.7], [width, 2, 0.5]))
+  walls.push(createBox(scene, BABYLON.Vector3.FromArray([0, 1, -width / 2 + 20]), [0.5, 0.6, 0.7], [width, 2, 0.5]))
   walls.forEach((w) => (w.isPickable = true))
 
   const NPCs: SteeringVehicle[] = []
@@ -41,18 +41,14 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
     const b = createBox(scene, BABYLON.Vector3.FromArray([Math.random() * 10, 0.8, Math.random() * 10]), [0.98, 0.97, 0.91], [0.5, 1.6, 0.3])
     b.isPickable = false
     b.rotation.y = Math.random() * 2 * Math.PI
-
     shadowGenerator.getShadowMap().renderList.push(b)
-    NPCs.push(new SteeringVehicle(b, scene, { maxSpeed: 6, maxAcceleration: 6 }))
+    NPCs.push(new SteeringVehicle(b, scene, { maxSpeed: 3, maxAcceleration: 5 }))
   }
+
   const hunter = createBox(scene, BABYLON.Vector3.FromArray([20, 0.8, -10]), [0.7, 0.8, 0.9], [0.5, 1.6, 0.3])
-  hunter.name = 'hunter'
   // const hunterNPC = new SteeringVehicle(hunter, scene, { maxSpeed: 12.27, maxAcceleration: 9.5 })
   const hunterNPC = new SteeringVehicle(hunter, scene, { maxSpeed: 12.27 * 2, maxAcceleration: 40 })
-
   const pray = createBox(scene, BABYLON.Vector3.FromArray([-20, 0.5, 20]), [0.7, 0.8, 0.9], [1, 1, 1])
-  // pray.lookAt(new BABYLON.Vector3(0, 0, 0))
-  pray.name = 'pray'
   const prayNPC = new SteeringVehicle(pray, scene, { maxSpeed: 12.27, maxAcceleration: 9.5 })
 
   const left = createBox(scene, BABYLON.Vector3.FromArray([0, 0.5, 5.2]), [0.7, 0.9, 0.8], [1, 1, 1])
@@ -60,14 +56,12 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
   const right = createBox(scene, BABYLON.Vector3.FromArray([10, 0.5, 4.8]), [0.9, 0.8, 0.7], [1, 1, 1])
   const rightNPC = new SteeringVehicle(right, scene, { maxSpeed: 1 })
 
-  // const camera: BABYLON.ArcRotateCamera = new BABYLON.ArcRotateCamera('Camera', -Math.PI / 3, Math.PI / 3, 50, BABYLON.Vector3.Zero(), scene)
-  // camera.attachControl(canvas, true)
-
-  const camera = new BABYLON.FollowCamera('Camera', new BABYLON.Vector3(-10, 10, -10), scene, hunter)
-  camera.radius = 10
-  camera.rotationOffset = 180
-  camera.attachControl(true)
-  // camera.attachControl(canvas, true)
+  const camera: BABYLON.ArcRotateCamera = new BABYLON.ArcRotateCamera('Camera', -Math.PI / 3, Math.PI / 3, 50, BABYLON.Vector3.Zero(), scene)
+  camera.attachControl(canvas, true)
+  // const camera = new BABYLON.FollowCamera('Camera', new BABYLON.Vector3(-10, 10, -10), scene, hunter)
+  // camera.radius = 10
+  // camera.rotationOffset = 180
+  // camera.attachControl(true)
 
   scene.onBeforeRenderObservable.add(() => {
     const all = [...NPCs, leftNPC, rightNPC, hunterNPC, prayNPC]
@@ -82,10 +76,10 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
     set(prayNPC.mesh, prayNPC.wander(0.2, 10, 30).collisionAvoidance(all, 1).lookWhereGoing().animate('blend'))
 
     set(leftNPC.mesh, leftNPC.applyAcceleration(new BABYLON.Vector3(1, 0, 0)).collisionAvoidance(all, 1).animate('priority'))
-    set(rightNPC.mesh, rightNPC.collisionAvoidance(all, 1).animate('blend'))
+    set(rightNPC.mesh, rightNPC.collisionAvoidance(all, 1).animate('priority'))
 
     for (const i in NPCs) {
-      const data = NPCs[i].wander(3.14, 2, 8).separation(all, 0.5).collisionAvoidance(all, 0.5).lookWhereGoing().animate('priority')
+      const data = NPCs[i].wander(3.14, 2, 6).separation(all).collisionAvoidance(all).obstacleAvoidance(walls).lookWhereGoing().animate('priority')
       set(NPCs[i].mesh, data)
     }
   })
