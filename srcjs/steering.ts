@@ -1,5 +1,4 @@
 import * as BABYLON from '@babylonjs/core'
-import { MeshBuilder, PickingInfo, RayHelper, Vector3 } from '@babylonjs/core'
 
 const defaultPriorities: Record<string, number> = {
   obstacleAvoidance: 20,
@@ -7,13 +6,16 @@ const defaultPriorities: Record<string, number> = {
   avoid: 10,
   queue: 9,
   separation: 7,
-  flock: 6,
+  cohesion: 6,
   flee: 6,
+  groupVelocityMatch: 5,
   seek: 5,
   wander: 1,
   applyAcceleration: 1,
   idle: 0,
 }
+
+const defaultWeights: Record<string, number> = {}
 
 const defaultProbabilities: Record<string, number> = {
   avoid: 0.66,
@@ -57,11 +59,13 @@ interface Target {
   orientation: number
   actions?: Action[]
   rotation?: number
+  direction: BABYLON.Vector3
 }
 
 type PositionTarget = Pick<Target, 'position'>
 type VelocityTarget = Pick<Target, 'velocity'>
 type OrientationTarget = Pick<Target, 'orientation'>
+type DirectionTarget = Pick<Target, 'direction'>
 
 export default class SteeringVehicle implements Target {
   private readonly scene: BABYLON.Scene
@@ -72,7 +76,7 @@ export default class SteeringVehicle implements Target {
   private readonly maxAcceleration: number = 1
 
   private readonly maxRotation: number = 2 * Math.PI
-  private readonly maxAngularAcceleration: number = this.maxRotation
+  private readonly maxAngularAcceleration: number = this.maxRotation * 3
 
   private readonly drag: number = 0.999
 
@@ -93,15 +97,11 @@ export default class SteeringVehicle implements Target {
 
   private _actions: Action[] = []
 
-  private readonly velocitySamples: BABYLON.Vector3[] = []
-  private readonly numSamplesForSmoothing: number = 20
-
   private pathIndex: number = 0
   private wanderOrientation: number = 0 // holds the current orientation of the wander target
   private readonly inSightDistance: number = 200
-  private readonly tooCloseDistance: number = 60
 
-  private debugMesh = MeshBuilder.CreateIcoSphere('debug', { radius: 0.25 })
+  private debugMesh = BABYLON.MeshBuilder.CreateIcoSphere('debug', { radius: 0.25 })
 
   constructor(mesh: BABYLON.Mesh, scene: BABYLON.Scene, options?: Options) {
     this.scene = scene
@@ -119,7 +119,7 @@ export default class SteeringVehicle implements Target {
     this.debugMesh.material = mat
   }
 
-  get mesh(): Readonly<BABYLON.Mesh> {
+  get mesh(): Readonly<BABYLON.AbstractMesh> {
     return this._mesh
   }
 
@@ -127,20 +127,28 @@ export default class SteeringVehicle implements Target {
     return this._actions
   }
 
-  animate(mode: 'blend' | 'priority' | 'probability' | 'truncated'): { orientation: number; position: BABYLON.Vector3 } {
+  animate(mode: 'blend' | 'priority' | 'probability' | 'truncated'): {
+    orientation: number
+    position: BABYLON.Vector3
+  } {
     const linear = BABYLON.Vector3.Zero()
     let angular = 0
 
     if (mode === 'blend') {
+      let totalLinearWeights = 0
       this._actions.forEach((a) => {
-        const weight = a.weight || 1 / this._actions.length
+        const weight = a.weight || defaultWeights[a.name] || 1 / this._actions.length
         if (a.linear) {
-          linear.addInPlace(a.linear).scaleInPlace(weight)
+          linear.addInPlace(a.linear.scaleInPlace(weight))
+          totalLinearWeights += weight
         }
-        if (a.angular) {
+        if (Math.abs(a.angular) > 0) {
           angular += a.angular * weight
         }
       })
+      if (totalLinearWeights) {
+        linear.scaleInPlace(1 / totalLinearWeights)
+      }
     } else if (mode === 'priority') {
       this._actions = this.sortByPriority(this._actions)
       for (let i = 0; i < this._actions.length; i++) {
@@ -228,7 +236,13 @@ export default class SteeringVehicle implements Target {
     return this
   }
 
-  arrive(target: PositionTarget, targetThreshold = 0.01, slowThreshold = 2, timeToTarget = 1, configuration = {}): this {
+  arrive(
+    target: PositionTarget,
+    targetThreshold = 0.01,
+    slowThreshold = 2,
+    timeToTarget = 1,
+    configuration = {}
+  ): this {
     const direction = target.position.subtract(this.position)
     const distance = direction.length()
     if (distance <= targetThreshold) {
@@ -253,7 +267,13 @@ export default class SteeringVehicle implements Target {
     return this
   }
 
-  align(target: OrientationTarget, targetRadius = 0.018, slowRadius = 0.8, timeToTarget = 0.1, configuration = {}): this {
+  align(
+    target: OrientationTarget,
+    targetRadius = 0.018,
+    slowRadius = 0.8,
+    timeToTarget = 0.1,
+    configuration = {}
+  ): this {
     let rotation = BABYLON.Scalar.NormalizeRadians(target.orientation - this.orientation)
     const rotationSize = Math.abs(rotation)
 
@@ -289,7 +309,12 @@ export default class SteeringVehicle implements Target {
     return this
   }
 
-  pursue(target: PositionTarget & VelocityTarget, maxPredictionSec = 2, targetThreshold = 0.1, configuration = {}): this {
+  pursue(
+    target: PositionTarget & VelocityTarget,
+    maxPredictionSec = 2,
+    targetThreshold = 0.1,
+    configuration = {}
+  ): this {
     const direction = target.position.subtract(this.position)
     const distance = direction.length()
     const speed = this.velocity.length()
@@ -299,7 +324,7 @@ export default class SteeringVehicle implements Target {
       prediction = distance / speed
     }
     const targetAhead = target.position.add(target.velocity.scale(prediction))
-    return this.arrive({ position: targetAhead }, targetThreshold, 2, 0.2, configuration)
+    return this.arrive({ position: targetAhead }, targetThreshold, 2, 0.2, setName(this.pursue.name, configuration))
   }
 
   evade(target: Target, maxPredictionSec = 1, targetThreshold = 0.1, configuration = {}): this {
@@ -312,8 +337,7 @@ export default class SteeringVehicle implements Target {
       prediction = distance / speed
     }
     const targetAhead = target.position.add(target.velocity.scale(prediction))
-    this.debug(targetAhead)
-    return this.flee({ position: targetAhead }, targetThreshold, configuration)
+    return this.flee({ position: targetAhead }, targetThreshold, setName(this.evade.name, configuration))
   }
 
   face(target: PositionTarget, targetRadius = 0.018, slowRadius = 0.2, timeToTarget = 0.1, configuration = {}): this {
@@ -321,7 +345,13 @@ export default class SteeringVehicle implements Target {
     if (direction.lengthSquared() === 0) {
       return this
     }
-    return this.align({ orientation: Math.atan2(direction.x, direction.z) }, targetRadius, slowRadius, timeToTarget, configuration)
+    return this.align(
+      { orientation: Math.atan2(direction.x, direction.z) },
+      targetRadius,
+      slowRadius,
+      timeToTarget,
+      setName(this.face.name, configuration)
+    )
   }
 
   lookWhereGoing(configuration = {}): this {
@@ -335,19 +365,23 @@ export default class SteeringVehicle implements Target {
       0.018,
       0.8,
       0.1,
-      configuration
+      setName(this.lookWhereGoing.name, configuration)
     )
   }
 
   wander(wanderRate = 3.14, offset = 5, radius = 4, configuration = {}): this {
-    const direction = this._mesh.getDirection(forward)
+    const direction = this.direction
     this.wanderOrientation += randomBinomial() * wanderRate
 
     let target = new BABYLON.Vector3(Math.sin(this.wanderOrientation), 0, Math.cos(this.wanderOrientation))
     target.scaleInPlace(radius)
     const ahead = direction.scale(offset).addInPlace(this._mesh.position)
     target.addInPlace(ahead)
-    return this.seek({ position: target }, 0, configuration)
+    return this.seek({ position: target }, 0, setName(this.wander.name, configuration))
+  }
+
+  public get direction(): BABYLON.Vector3 {
+    return this._mesh.getDirection(forward)
   }
 
   separation(entities: PositionTarget[], radius = 1, decayCoefficient = 1, configuration = {}): this {
@@ -363,7 +397,7 @@ export default class SteeringVehicle implements Target {
         continue
       }
       // if two entities are on top each other, randomise their separation so they dont both have the same exact separation vector
-      if (sqrLength === 0) {
+      if (sqrLength < 0.0001) {
         const r = Math.random() * 2 * Math.PI
         direction = BABYLON.Vector3.FromArray([Math.sin(r), 0, Math.cos(r)])
         sqrLength = 0.000001
@@ -377,6 +411,62 @@ export default class SteeringVehicle implements Target {
     return this
   }
 
+  cohesion(entities: PositionTarget[] & DirectionTarget[], radius = 1, configuration = {}): this {
+    const linear = BABYLON.Vector3.Zero()
+
+    let numEntities = 0
+    for (let i = 0; i < entities.length; i++) {
+      if (entities[i] === this) {
+        continue
+      }
+      linear.addInPlace(entities[i].position)
+      numEntities++
+    }
+    if (!numEntities) {
+      this.debugMesh.setEnabled(false)
+      return this
+    }
+    // average position
+    linear.scaleInPlace(1 / numEntities)
+
+    const target = linear.subtract(this.position)
+    const sqrLength = target.lengthSquared()
+    // more or less on top of the target or too far away
+    if (sqrLength < radius) {
+      this.debugMesh.setEnabled(false)
+      return this
+    }
+
+    target.normalize().scaleInPlace(this.maxAcceleration)
+    this.addAction(this.cohesion.name, { linear: target }, configuration)
+    return this
+  }
+
+  groupVelocityMatch(entities: Target[], radius = 5, timeToTarget = 0.1, configuration = {}): this {
+    const avgVelocity = BABYLON.Vector3.Zero()
+
+    let numEntities = 0
+    for (let i = 0; i < entities.length; i++) {
+      if (entities[i] === this || !this.inSight(entities[i])) {
+        continue
+      }
+      if (BABYLON.Vector3.Distance(this.position, entities[i].position)) avgVelocity.addInPlace(entities[i].velocity)
+      numEntities++
+    }
+    if (numEntities) {
+      avgVelocity.scaleInPlace(1 / numEntities)
+    }
+
+    let linear: BABYLON.Vector3 = avgVelocity.subtract(this.velocity)
+    linear.scaleInPlace(1 / timeToTarget)
+    if (linear.length() > this.maxAcceleration) {
+      linear.normalize()
+      linear.scaleInPlace(this.maxAcceleration)
+    }
+    this.addAction(this.groupVelocityMatch.name, { linear: linear }, configuration)
+    return this
+  }
+
   collisionAvoidance(entities: Target[], radius = 0.75, secondsAhead = 3, configuration = {}): this {
     let shortestTime = Infinity
     let firstTarget = null
@@ -386,7 +476,7 @@ export default class SteeringVehicle implements Target {
     let firstRelativeVel = null
 
     for (let i = 0; i < entities.length; i++) {
-      if (entities[i] === this) {
+      if (entities[i] === this || !this.inSight(entities[i])) {
         continue
       }
       const target = entities[i]
@@ -459,10 +549,14 @@ export default class SteeringVehicle implements Target {
     const right = new BABYLON.Vector3(0, 0, 0)
     direction.clone().rotateByQuaternionToRef(rightRot, right)
 
-    const rays = [new BABYLON.Ray(start, left, avoidDistance), new BABYLON.Ray(start, direction, lookahead), new BABYLON.Ray(start, right, avoidDistance)]
+    const rays = [
+      new BABYLON.Ray(start, left, avoidDistance),
+      new BABYLON.Ray(start, direction, lookahead),
+      new BABYLON.Ray(start, right, avoidDistance),
+    ]
 
     let shortest = Infinity
-    let hit: PickingInfo | null = null
+    let hit: BABYLON.PickingInfo | null = null
     let idx: number = 0
 
     rays.forEach((ray, index) => {
@@ -596,6 +690,26 @@ export default class SteeringVehicle implements Target {
   //   return this
   // }
 
+  // asdasd(entities: Target[], configuration = {}): this {
+  //   const averagePosition = new BABYLON.Vector3(0, 0, 0)
+  //   let inSightCount = 0
+  //   for (let i = 0; i < entities.length; i++) {
+  //     if (entities[i] != this && this.inSight(entities[i])) {
+  //       averagePosition.addInPlace(entities[i].position)
+  //       inSightCount++
+  //     }
+  //   }
+  //   if (inSightCount === 0) {
+  //     return this
+  //   }
+  //   averagePosition.scaleInPlace(1 / inSightCount)
+  //
+  //   linear.normalize().scaleInPlace(this.maxAcceleration)
+  //   this.addAction(this.seek.name, { linear: linear }, configuration)
+  //
+  //   return this.seek({ position: averagePosition })
+  // }
+
   // NOT WORKING !!!
   flock(entities: Target[], configuration = {}): this {
     const averageVelocity = this._velocity.clone()
@@ -603,11 +717,8 @@ export default class SteeringVehicle implements Target {
     let inSightCount = 0
     for (let i = 0; i < entities.length; i++) {
       if (entities[i] != this && this.inSight(entities[i])) {
-        averageVelocity.add(entities[i].velocity)
-        averagePosition.add(entities[i].position)
-        if (BABYLON.Vector3.Distance(this.position, entities[i].position) < this.tooCloseDistance) {
-          this.flee(entities[i] /* .mesh.position */)
-        }
+        averageVelocity.addInPlace(entities[i].velocity)
+        averagePosition.addInPlace(entities[i].position)
         inSightCount++
       }
     }
@@ -679,13 +790,12 @@ export default class SteeringVehicle implements Target {
     return this
   }
 
-  private inSight(target: Target): boolean {
-    if (BABYLON.Vector3.Distance(this._mesh.position, target.position) > this.inSightDistance) {
+  private inSight(target: PositionTarget & DirectionTarget, inSightDistance = 200): boolean {
+    if (BABYLON.Vector3.Distance(this._mesh.position, target.position) > inSightDistance) {
       return false
     }
-    const heading = /* new BABYLON.Vector3(0, 0, 1); //  */ target.velocity.clone().normalize().scaleInPlace(1)
     const difference = target.position.clone().subtract(this.position.clone())
-    const dot = BABYLON.Vector3.Dot(difference, heading)
+    const dot = BABYLON.Vector3.Dot(difference, target.direction)
     return dot >= 0
   }
 
@@ -753,7 +863,10 @@ export default class SteeringVehicle implements Target {
   // }
 
   private isOnLeaderSight(leader: Target, ahead: BABYLON.Vector3, leaderSightRadius: number): boolean {
-    return BABYLON.Vector3.Distance(ahead, this._mesh.position) <= leaderSightRadius || BABYLON.Vector3.Distance(leader.position, this._mesh.position) <= leaderSightRadius
+    return (
+      BABYLON.Vector3.Distance(ahead, this._mesh.position) <= leaderSightRadius ||
+      BABYLON.Vector3.Distance(leader.position, this._mesh.position) <= leaderSightRadius
+    )
   }
 
   private getNeighborAhead(entities: Target[]): Target {
@@ -793,7 +906,7 @@ export default class SteeringVehicle implements Target {
   }
 
   private addAction(name: string, action: Action, configuration = {}) {
-    this._actions.push(Object.assign(configuration, action, { name: name }))
+    this._actions.push(Object.assign({}, action, { name: name }, configuration))
   }
 }
 
@@ -802,3 +915,7 @@ function randomBinomial() {
 }
 
 const forward = new BABYLON.Vector3(0, 0, 1)
+
+const setName = (name: string, config: Record<string, any>) => {
+  return Object.assign({}, config, { name: name })
+}
