@@ -119,7 +119,7 @@ export default class SteeringVehicle implements Target {
     this.debugMesh.material = mat
   }
 
-  get mesh(): Readonly<BABYLON.AbstractMesh> {
+  get mesh(): BABYLON.AbstractMesh {
     return this._mesh
   }
 
