@@ -11,7 +11,7 @@ export class NPCList {
   }
 
   create(position: BABYLON.Vector3, rotation: number) {
-    const b = createBox(this.scene, position, [0.98, 0.97, 0.91], [0.5, 1.6, 0.3], true)
+    const b = createBox(this.scene, position, [0.98, 0.97, 0.91], [0.43, 1.62, 0.3], true)
     b.isPickable = false
     b.rotation.y = BABYLON.Scalar.NormalizeRadians(rotation)
     const n = new NPC(b, this.scene, { maxSpeed: 2, maxAcceleration: 10 })

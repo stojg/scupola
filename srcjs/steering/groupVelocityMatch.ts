@@ -19,7 +19,7 @@ export class GroupVelocityMatch extends VelocityMatching {
       if (target == this.character) {
         return
       }
-      if (!this.inSightCone(this.character, target, Math.PI / 4)) {
+      if (!this.inSightCone(this.character, target, Math.PI / 4, 10)) {
         return
       }
       avgVelocity.addInPlace(target.velocity)

@@ -18,7 +18,7 @@ export class Cohesion extends Steering {
       if (target == this.character) {
         return
       }
-      if (!this.inSightCone(this.character, target, Math.PI / 2)) {
+      if (!this.inSightCone(this.character, target, Math.PI / 2, 10)) {
         return
       }
       centreOfGroup.addInPlace(target.position)

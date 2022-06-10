@@ -30,21 +30,26 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
   shadowGenerator.useKernelBlur = true
   shadowGenerator.blurKernel = 64
 
-  const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 1000, height: 1000 }, scene)
+  // const offset = [3500, -1750]
+  const offset = [4200, 0]
+
+  const groundOptions = { width: 128, height: 128 }
+  const ground = BABYLON.MeshBuilder.CreateGround('ground', groundOptions, scene)
+  ground.position.x = offset[0]
   ground.position.y = 1.6
+  ground.position.z = offset[1]
   ground.receiveShadows = true
   ground.freezeWorldMatrix()
   const matg = new BABYLON.StandardMaterial('ground', scene)
   matg.freeze()
   const gridTexture = new BABYLON.Texture('./grid.png', scene)
-  gridTexture.vScale = gridTexture.uScale = 1000
+  gridTexture.vScale = groundOptions.width
+  gridTexture.uScale = groundOptions.height
+
   matg.diffuseTexture = gridTexture
 
   matg.specularColor.set(0, 0, 0)
   ground.material = matg
-
-  // const offset = [3500, -1750]
-  const offset = [0, 0]
 
   const npcList = new NPCList(scene)
 
@@ -76,11 +81,11 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
     const entities = [...npcList.all(), ...avatars.all()]
     npcList.forEach((npc) => {
       npc.clearPriorityGroup()
-      npc.addPriorityGroup(0, [Blended.create(1, new CollisionAvoidance(npc, entities, 1, 2))])
-      npc.addPriorityGroup(1, [Blended.create(1, new Attract(npc, { position: new BABYLON.Vector3(0, 0, 0) }, 100))])
+      npc.addPriorityGroup(0, [Blended.create(1, new CollisionAvoidance(npc, entities, 0.6, 1))])
+      npc.addPriorityGroup(1, [Blended.create(1, new Attract(npc, { position: new BABYLON.Vector3(4200, 0, 0) }, 64))])
       npc.addPriorityGroup(2, [
-        Blended.create(0.5, new Separation(npc, npcList.all(), 0.75, 1)),
-        Blended.create(0.3, new Cohesion(npc, npcList.all(), 3)),
+        Blended.create(0.5, new Separation(npc, npcList.all(), 0.5, 1)),
+        Blended.create(0.3, new Cohesion(npc, npcList.all(), 2)),
         Blended.create(0.2, new GroupVelocityMatch(npc, npcList.all())),
         Blended.create(1, new LookWhereGoing(npc)),
       ])

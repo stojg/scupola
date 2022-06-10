@@ -63,7 +63,16 @@ export abstract class Steering {
     return dot >= 0
   }
 
-  protected inSightCone(character: PositionTarget & DirectionTarget, target: PositionTarget, radians: number) {
+  protected inSightCone(
+    character: PositionTarget & DirectionTarget,
+    target: PositionTarget,
+    radians: number,
+    maxDistance?: number
+  ) {
+    if (maxDistance && BABYLON.Vector3.Distance(character.position, target.position) > maxDistance) {
+      return false
+    }
+
     const dot = this._insight(character, target)
     return dot >= radians / 2
   }
