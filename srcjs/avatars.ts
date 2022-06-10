@@ -3,19 +3,12 @@ import * as messages from '@cryptovoxels/messages'
 import { Entity } from './core/entity'
 
 class Avatar extends Entity {
-  readonly uuid: string
   private _rotationQuaternion: BABYLON.Quaternion = BABYLON.Quaternion.Zero()
   animation: number = 0
-  wallet?: string
-  name?: string
-  ts: number
+  ts: number = Date.now()
 
-  constructor(uuid, wallet, name) {
+  constructor(public readonly uuid, public readonly wallet, public readonly name, protected scene) {
     super(BABYLON.Vector3.Zero(), 0, 1000, 1000)
-    this.uuid = uuid
-    this.wallet = wallet
-    this.name = name
-    this.ts = Date.now()
   }
 
   update(position, orientation, animation) {
@@ -45,6 +38,8 @@ export class AvatarList {
   avatars: Record<string, Avatar> = {}
   ignoreUUIDs: string[] = []
 
+  constructor(protected scene: BABYLON.Scene) {}
+
   ignoreUpdatesFor(uuid: string) {
     this.ignoreUUIDs.push(uuid)
   }
@@ -53,7 +48,7 @@ export class AvatarList {
     if (this.ignoreUUIDs.includes(msg.uuid) || this.avatars[msg.uuid]) {
       return
     }
-    this.avatars[msg.uuid] = new Avatar(msg.uuid, msg.description?.wallet, msg.description?.name)
+    this.avatars[msg.uuid] = new Avatar(msg.uuid, msg.description?.wallet, msg.description?.name, this.scene)
   }
 
   update = (msg: messages.UpdateAvatarMessage) => {

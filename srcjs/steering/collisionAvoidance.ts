@@ -1,13 +1,11 @@
 import { PositionTarget, Steering, SteeringOutput, VelocityTarget } from './steering'
 import * as BABYLON from '@babylonjs/core'
-import { Entity } from '../core/entity'
 import NPC from '../core/npc'
 
 export class CollisionAvoidance extends Steering {
   constructor(
     private character: NPC,
     private targets: (PositionTarget & VelocityTarget)[],
-    private maxAcceleration: number,
     private radius = 1.0,
     private secondsAhead = 1.0
   ) {
@@ -74,7 +72,7 @@ export class CollisionAvoidance extends Steering {
     }
 
     // avoid the target
-    steering.linear.copyFrom(target.normalize().scaleInPlace(-this.maxAcceleration))
+    steering.linear.copyFrom(target.normalize().scaleInPlace(-this.character.maxAcceleration))
 
     return steering
   }

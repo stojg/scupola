@@ -1,14 +1,8 @@
 import { PositionTarget, Steering } from './steering'
-import { Entity } from '../core/entity'
 import NPC from '../core/npc'
 
 export class Attract extends Steering {
-  constructor(
-    private character: NPC,
-    private target: PositionTarget,
-    private maxAcceleration: number,
-    private threshold: number
-  ) {
+  constructor(private character: NPC, private target: PositionTarget, private threshold: number) {
     super()
   }
 
@@ -20,7 +14,7 @@ export class Attract extends Steering {
       return steering
     }
 
-    direction.normalize().scaleInPlace(this.maxAcceleration)
+    direction.normalize().scaleInPlace(this.character.maxAcceleration)
     steering.linear.copyFrom(direction)
     return steering
   }

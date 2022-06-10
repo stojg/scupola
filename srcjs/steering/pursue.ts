@@ -1,16 +1,14 @@
 import { PositionTarget, VelocityTarget } from './steering'
 import { Seek } from './seek'
-import { Entity } from '../core/entity'
 import NPC from '../core/npc'
 
 export class Pursue extends Seek {
   constructor(
     protected character: NPC,
     protected target: PositionTarget & VelocityTarget,
-    maxAcceleration: number,
     protected maxPrediction: number
   ) {
-    super(character, target, maxAcceleration)
+    super(character, target)
   }
 
   getSteering() {

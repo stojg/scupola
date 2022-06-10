@@ -1,13 +1,11 @@
 import { PositionTarget, Steering } from './steering'
 import * as BABYLON from '@babylonjs/core'
-import { Entity } from '../core/entity'
 import NPC from '../core/npc'
 
 export class Separation extends Steering {
   constructor(
     protected readonly character: NPC,
     protected readonly targets: PositionTarget[],
-    protected readonly maxAcceleration,
     protected readonly threshold = 1,
     protected readonly decayCoefficient = 1
   ) {
@@ -33,7 +31,7 @@ export class Separation extends Steering {
         distance = 0.001
       }
 
-      const strength = Math.min(this.decayCoefficient / (distance * distance), this.maxAcceleration)
+      const strength = Math.min(this.decayCoefficient / (distance * distance), this.character.maxAcceleration)
       direction.normalize()
       steering.linear.addInPlace(direction.scale(strength))
     })

@@ -1,13 +1,11 @@
 import { PositionTarget, Steering } from './steering'
 import * as BABYLON from '@babylonjs/core'
-import { Entity } from '../core/entity'
 import NPC from '../core/npc'
 
 export class Cohesion extends Steering {
   constructor(
     protected readonly character: NPC,
     protected readonly targets: PositionTarget[],
-    protected readonly maxAcceleration,
     protected readonly threshold = 1
   ) {
     super()
@@ -39,7 +37,7 @@ export class Cohesion extends Steering {
     if (target.length() < this.threshold) {
       return steering
     }
-    steering.linear = target.normalize().scaleInPlace(this.maxAcceleration)
+    steering.linear = target.normalize().scaleInPlace(this.character.maxAcceleration)
     return steering
   }
 }

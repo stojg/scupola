@@ -1,11 +1,10 @@
 import { SteeringOutput } from './steering'
 import { Align } from './align'
-import { Entity } from '../core/entity'
 import NPC from '../core/npc'
 
 export class LookWhereGoing extends Align {
   constructor(protected character: NPC) {
-    super(character, { orientation: 0 }, 100, Math.PI * 2)
+    super(character, { orientation: 0 })
   }
 
   getSteering(): SteeringOutput {

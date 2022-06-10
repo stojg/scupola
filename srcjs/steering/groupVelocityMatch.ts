@@ -1,16 +1,14 @@
 import * as BABYLON from '@babylonjs/core'
 import { DirectionTarget, PositionTarget, SteeringOutput, VelocityTarget } from './steering'
 import { VelocityMatching } from './velocityMatching'
-import { Entity } from '../core/entity'
 import NPC from '../core/npc'
 
 export class GroupVelocityMatch extends VelocityMatching {
   constructor(
     protected readonly character: NPC,
-    protected readonly targets: (VelocityTarget & PositionTarget & DirectionTarget)[],
-    protected readonly maxAcceleration
+    protected readonly targets: (VelocityTarget & PositionTarget & DirectionTarget)[]
   ) {
-    super(character, undefined, maxAcceleration)
+    super(character, undefined)
   }
 
   getSteering(): SteeringOutput {

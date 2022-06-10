@@ -1,14 +1,11 @@
 import { OrientationTarget, Steering, SteeringOutput } from './steering'
 import * as BABYLON from '@babylonjs/core'
-import { Entity } from '../core/entity'
 import NPC from '../core/npc'
 
 export class Align extends Steering {
   constructor(
     protected character: NPC,
     protected target: OrientationTarget,
-    protected maxAngularAcceleration = 20 * Math.PI,
-    protected maxRotation = 2 * Math.PI,
     protected targetRadius = 0.018,
     protected slowRadius = 0.3,
     protected timeToTarget = 0.1
@@ -29,9 +26,9 @@ export class Align extends Steering {
       return steering
     }
 
-    let targetRotation = this.maxRotation
+    let targetRotation = this.character.maxRotation
     if (rotationSize <= this.slowRadius) {
-      targetRotation = this.maxRotation * (rotationSize / this.slowRadius)
+      targetRotation = this.character.maxRotation * (rotationSize / this.slowRadius)
     }
 
     // the final target rotation combines speed (already in the var) and directions
@@ -42,7 +39,7 @@ export class Align extends Steering {
     steering.angular /= this.timeToTarget
 
     // check if acceleration is too fast
-    steering.angular = this.clampNumber(steering.angular, this.maxAngularAcceleration)
+    steering.angular = this.clampNumber(steering.angular, this.character.maxAngularAcceleration)
 
     return steering
   }

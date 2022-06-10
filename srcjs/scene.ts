@@ -48,7 +48,7 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
 
   const npcList = new NPCList(scene)
 
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 100; i++) {
     const rad = 4
     npcList.create(
       new BABYLON.Vector3(
@@ -63,7 +63,7 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
   // Cameras.rotate(scene, canvas)
   Cameras.follow(scene, npcList.get(0).mesh)
 
-  const avatars = new AvatarList()
+  const avatars = new AvatarList(scene)
 
   // connect NPCs with the MP server
   npcList.forEach((npc, idx) => {
@@ -76,20 +76,20 @@ export const Scene = (engine: BABYLON.Engine, canvas: HTMLCanvasElement) => {
     const entities = [...npcList.all(), ...avatars.all()]
     npcList.forEach((npc) => {
       npc.clearPriorityGroup()
-      npc.addPriorityGroup(0, [Blended.create(1, new CollisionAvoidance(npc, entities, 10, 0.75, 1))])
-      npc.addPriorityGroup(1, [Blended.create(1, new Attract(npc, { position: new BABYLON.Vector3(0, 0, 0) }, 10, 50))])
+      npc.addPriorityGroup(0, [Blended.create(1, new CollisionAvoidance(npc, entities, 1, 2))])
+      npc.addPriorityGroup(1, [Blended.create(1, new Attract(npc, { position: new BABYLON.Vector3(0, 0, 0) }, 100))])
       npc.addPriorityGroup(2, [
-        Blended.create(0.5, new Separation(npc, npcList.all(), 10, 0.75, 2)),
-        Blended.create(0.3, new Cohesion(npc, npcList.all(), 10, 1)),
-        Blended.create(0.2, new GroupVelocityMatch(npc, npcList.all(), 10)),
+        Blended.create(0.5, new Separation(npc, npcList.all(), 0.75, 1)),
+        Blended.create(0.3, new Cohesion(npc, npcList.all(), 3)),
+        Blended.create(0.2, new GroupVelocityMatch(npc, npcList.all())),
         Blended.create(1, new LookWhereGoing(npc)),
       ])
       // const target = avatars.find('stojg')
       // if (target) {
       // npc.addPriorityGroup(3, [Blended.create(1, new Arrive(npc, target, 10, 6, 3))])
       // }
-      npc.addPriorityGroup(5, [Blended.create(1, new Wander(npc, 10))])
-      npc.addPriorityGroup(10, [Blended.create(1, new Idle(npc, 10, Math.PI * 2))])
+      npc.addPriorityGroup(5, [Blended.create(1, new Wander(npc))])
+      npc.addPriorityGroup(10, [Blended.create(1, new Idle(npc))])
       npc.steer()
     })
   })

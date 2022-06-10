@@ -1,12 +1,10 @@
 import { RotationTarget, Steering } from './steering'
-import { Entity } from '../core/entity'
 import NPC from '../core/npc'
 
 export class RotationMatching extends Steering {
   constructor(
     protected readonly character: NPC,
     protected target: RotationTarget,
-    protected readonly maxRotation,
     protected readonly timeToTarget = 0.1
   ) {
     super()
@@ -17,7 +15,7 @@ export class RotationMatching extends Steering {
     steering.angular = this.target.rotation - this.character.rotation
     steering.angular /= this.timeToTarget
 
-    steering.angular = this.clampNumber(steering.angular, this.maxRotation)
+    steering.angular = this.clampNumber(steering.angular, this.character.maxRotation)
 
     return steering
   }

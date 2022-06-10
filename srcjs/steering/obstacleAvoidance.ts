@@ -1,13 +1,11 @@
 import { Steering, SteeringOutput } from './steering'
 import * as BABYLON from '@babylonjs/core'
-import { Entity } from '../core/entity'
 import NPC from '../core/npc'
 
 export class ObstacleAvoidance extends Steering {
   constructor(
     private character: NPC,
     private obstacles: BABYLON.Mesh[],
-    private maxAcceleration: number,
     private radiusInFront: number, // this._mesh.getBoundingInfo().boundingSphere.radiusWorld)
     private avoidDistance = 1,
     private lookahead = 1
@@ -65,7 +63,7 @@ export class ObstacleAvoidance extends Steering {
     const target = hit.pickedPoint.add(normal.scale(this.avoidDistance))
 
     const linear = target.subtract(this.character.position)
-    linear.normalize().scaleInPlace(this.maxAcceleration)
+    linear.normalize().scaleInPlace(this.character.maxAcceleration)
 
     const steering = this.steeringOutput()
     steering.linear.copyFrom(linear)

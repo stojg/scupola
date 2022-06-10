@@ -66,6 +66,9 @@ export default class NPC extends Entity {
   }
 
   private update(steering: SteeringOutput) {
+    if (isNaN(steering.linear.length()) || isNaN(steering.angular)) {
+      throw new Error('Steering is returning a NaN')
+    }
     const dt = this.engine.getDeltaTime() / 1000
 
     if (steering.linear.length() > this._maxAcceleration) {

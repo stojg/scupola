@@ -12,8 +12,8 @@ export class Entity {
   constructor(position: BABYLON.Vector3, orientation: number, maxSpeed?: number, maxRotation?: number) {
     this._position.copyFrom(position)
     this._orientation = orientation
-    this._maxSpeed = maxSpeed
-    this._maxRotation = maxRotation
+    this._maxSpeed = maxSpeed || this._maxSpeed
+    this._maxRotation = maxRotation || this._maxRotation
   }
 
   get position(): Readonly<BABYLON.Vector3> {

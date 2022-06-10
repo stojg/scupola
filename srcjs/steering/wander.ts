@@ -1,7 +1,6 @@
 import * as BABYLON from '@babylonjs/core'
 import { SteeringOutput } from './steering'
 import { Face } from './face'
-import { Entity } from '../core/entity'
 import NPC from '../core/npc'
 
 export class Wander extends Face {
@@ -10,8 +9,8 @@ export class Wander extends Face {
   wanderRate = Math.PI / 8
   wanderOrientation = 0
 
-  constructor(character: NPC, protected readonly maxAcceleration) {
-    super(character, { position: undefined, orientation: 0, rotation: 0 }, maxAcceleration)
+  constructor(character: NPC) {
+    super(character, { position: undefined, orientation: 0, rotation: 0 })
   }
 
   getSteering(): SteeringOutput {
@@ -29,7 +28,7 @@ export class Wander extends Face {
 
     super.target = { position: target, orientation: 0, rotation: 0 }
     const steering = super.getSteering()
-    steering.linear = direction.scale(this.maxAcceleration)
+    steering.linear = direction.scale(this.character.maxAcceleration)
     return steering
   }
 }
