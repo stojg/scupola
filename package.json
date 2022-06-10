@@ -16,7 +16,11 @@
   "license": "ISC",
   "dependencies": {
     "react": "^16.13.1",
-    "react-dom": "^16.13.1"
+    "react-dom": "^16.13.1",
+    "@cryptovoxels/messages": "^3.0.0",
+    "@cryptovoxels/multiplayer-client": "0.1.0-alpha.15",
+    "uuid": "^8.3.2",
+    "@cryptovoxels/util-logger": "^1.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.17.10",
@@ -39,5 +43,6 @@
     "webpack-dev-server": "^4.8.1",
     "webpack-livereload-plugin": "^3.0.2",
     "webpack-merge": "^5.8.0"
+
   }
 }
