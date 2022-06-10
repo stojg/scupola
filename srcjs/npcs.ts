@@ -44,7 +44,7 @@ export class NPCList {
   }
 }
 
-let boxCounter = 0
+let npcCounter = 0
 function createBox(
   scene: BABYLON.Scene,
   pos: BABYLON.Vector3,
@@ -52,10 +52,11 @@ function createBox(
   size: [number, number, number],
   face: boolean = false
 ) {
-  const mat = new BABYLON.StandardMaterial('box{sphereCounter}', scene)
+  const mat = new BABYLON.StandardMaterial(`npc${npcCounter}`, scene)
   mat.diffuseColor = new BABYLON.Color3(colour[0], colour[1], colour[2])
   mat.ambientColor = new BABYLON.Color3(colour[0], colour[1], colour[2])
   mat.alpha = 1.0
+  mat.freeze()
   const faceColors = []
   for (let i = 0; i < 6; i++) {
     faceColors.push(BABYLON.Color4.FromArray([...colour, 0]))
@@ -66,9 +67,9 @@ function createBox(
 
   const options = { width: size[0], height: size[1], depth: size[2], faceColors }
 
-  const s = BABYLON.MeshBuilder.CreateBox(`box${boxCounter}`, options, scene)
+  const s = BABYLON.MeshBuilder.CreateBox(`npc${npcCounter}`, options, scene)
   s.position.copyFrom(pos)
   s.material = mat
-  boxCounter += 1
+  npcCounter += 1
   return s
 }

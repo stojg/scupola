@@ -29,6 +29,7 @@ class Avatar extends Entity {
     this.mesh = BABYLON.MeshBuilder.CreateBox(`${name}-${uuid}`, options, scene)
     this.mesh.position.y = 2.348
     this.mesh.material = this.material
+    this.material.freeze()
   }
 
   update(position, orientation, animation) {
