@@ -1,5 +1,5 @@
 import * as BABYLON from '@babylonjs/core'
-import NPC from './core/npc'
+import NPC from './npc'
 import { MultiplayerClientAvatar } from '@cryptovoxels/multiplayer-client/dist/cjs/internal/io/MultiplayerClientInput'
 
 export class NPCList {

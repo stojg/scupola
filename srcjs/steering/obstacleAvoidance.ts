@@ -14,6 +14,10 @@ export class ObstacleAvoidance extends Steering {
   }
 
   getSteering(): SteeringOutput {
+    const obstacles = this.obstacles.filter((m) => {
+      return this.character.position.subtract(m.position).lengthSquared() < 40 * 40
+    })
+
     if (this.character.velocity.lengthSquared() === 0) {
       return this.steeringOutput()
     }
@@ -42,7 +46,7 @@ export class ObstacleAvoidance extends Steering {
 
     rays.forEach((ray, index) => {
       const pickingInfos: BABYLON.PickingInfo[] = []
-      ray.intersectsMeshes(this.obstacles, false, pickingInfos)
+      ray.intersectsMeshes(obstacles, false, pickingInfos)
       if (!pickingInfos.length) {
         return
       }

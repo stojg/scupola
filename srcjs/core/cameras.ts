@@ -16,8 +16,8 @@ export namespace Cameras {
 
   export const follow = (scene, mesh) => {
     const camera = new BABYLON.FollowCamera('Camera', new BABYLON.Vector3(0, 10, -10), scene, mesh)
-    camera.radius = 40
-    camera.lowerHeightOffsetLimit = 10
+    camera.radius = 60
+    camera.lowerHeightOffsetLimit = 35
     camera.rotationOffset = 180
     camera.attachControl(true)
     return camera
